@@ -50,8 +50,8 @@ def calculate_indices(pre_bands, post_bands):
         The NDVI index, calculated as the difference between the post-fire band 8 and band 4 values, normalized by their sum.
     """
     
-    nbr_pre = (pre_bands['B12'] - pre_bands['B8A']) / (pre_bands['B12'] + pre_bands['B8A'])
-    nbr_post = (post_bands['B12'] - post_bands['B8A']) / (post_bands['B12'] + post_bands['B8A'])
+    nbr_pre = (pre_bands['B8A'] - pre_bands['B12']) / (pre_bands['B8A'] + pre_bands['B12'])
+    nbr_post = (post_bands['B8A'] - post_bands['B12']) / (post_bands['B8A'] + post_bands['B12'])
     dnbr = nbr_pre - nbr_post
     ndwi = (post_bands['B03'] - post_bands['B08']) / (post_bands['B03'] + post_bands['B08'])
     ndvi = (post_bands['B08'] - post_bands['B04']) / (post_bands['B08'] + post_bands['B04'])
@@ -173,7 +173,6 @@ def process_tile_pair(tile_id, paths, output_dir):
     output_profile.update({
         'count': 16,
         'dtype': 'float32',
-        'compress': 'lzw'
     })
     
     post_filename = os.path.basename(paths['post'])
