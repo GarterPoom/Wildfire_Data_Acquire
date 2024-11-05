@@ -5,6 +5,25 @@ from osgeo import gdal  # GDAL library for handling raster data
 
 # Function to resample a single image to a target resolution and save as 8-bit
 def resample_image(input_path, output_path, target_resolution=10):
+    """
+    Resamples a single image to a target resolution and saves it as an 8-bit GeoTIFF file.
+
+    Parameters
+    ----------
+    input_path : str
+        The path to the input raster file to be resampled.
+    output_path : str
+        The path to the output GeoTIFF file to be saved.
+    target_resolution : int, optional
+        The target resolution in meters to resample the image to. Defaults to 10 meters.
+
+    Notes
+    -----
+    This function uses the rasterio library to read and write raster data. The nearest
+    neighbor resampling method is used to resample the data. The output file is saved as
+    a GeoTIFF file with float32 data type and the same coordinate reference system (CRS)
+    as the input file.
+    """
     print(f"Resampling image: {input_path} to {output_path} at {target_resolution}m resolution.")
     
     # Open the input raster file
@@ -49,6 +68,29 @@ def resample_image(input_path, output_path, target_resolution=10):
 
 # Function to process multiple band files in a folder
 def process_bands(input_folder, output_folder):
+    """
+    Processes Sentinel-2 band files in a given input folder, resamples them, and writes the output to a GeoTIFF file.
+
+    Parameters
+    ----------
+    input_folder : str
+        The path to the folder containing the input .jp2 Sentinel-2 band files.
+    output_folder : str
+        The path to the folder where the processed output file will be saved.
+
+    Notes
+    -----
+    This function searches for .jp2 files in the input folder, extracts tile and date information,
+    and resamples each band file to a specified resolution. It creates a temporary folder to store
+    the resampled files and then constructs a virtual raster (VRT) to combine them. The combined
+    raster is saved as a GeoTIFF file in the output folder. Temporary files are cleaned up after
+    processing.
+
+    Note
+    ----
+    The function uses the GDAL and rasterio libraries for file handling and raster processing.
+    """
+    
     print(f"Processing bands in folder: {input_folder}")
     
     # Find all .jp2 files in the input folder
@@ -116,6 +158,21 @@ def process_bands(input_folder, output_folder):
 
 # Function to search for folders containing .jp2 files and process them
 def find_and_process_folders(root_folder, output_folder):
+    """
+    Searches for folders containing .jp2 files in the given root folder and processes them using the process_bands function.
+
+    Parameters
+    ----------
+    root_folder : str
+        The root directory to search for folders containing .jp2 files.
+    output_folder : str
+        The directory where the output files will be saved.
+
+    Returns
+    -------
+    None
+    This function prints messages as it searches for and processes folders, and does not return any value.
+    """
     print(f"Searching for folders in: {root_folder}")
     
     # Walk through all directories and subdirectories
