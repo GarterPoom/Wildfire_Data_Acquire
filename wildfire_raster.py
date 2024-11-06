@@ -6,50 +6,34 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 
 def read_sentinel_bands(raster_path):
     """
-    Reads a Sentinel-2 raster file and returns a dictionary of its bands and its profile.
+    Reads Sentinel-2 raster bands from a provided raster file path.
 
-    Parameters
-    ----------
-    raster_path : str
-        The path to the Sentinel-2 raster file to read.
+    Args:
+        raster_path (str): The file path to the raster file containing Sentinel-2 bands.
 
-    Returns
-    -------
-    bands : dict
-        A dictionary of the bands in the raster file, with keys being the band names ('B01', 'B02', etc.)
-        and values being the band data.
-    profile : dict
-        The rasterio profile of the raster file, which contains its geotransform, crs, and other metadata.
+    Returns:
+        tuple: A dictionary with band names as keys and corresponding band data as values, 
+               and a profile dictionary containing metadata of the raster file.
     """
     with rasterio.open(raster_path) as src:
         bands = {}
         for i, band_name in enumerate(['B01', 'B02', 'B03', 'B04', 'B05', 'B06', 
-                                     'B07', 'B08', 'B8A', 'B09', 'B11', 'B12']):
+                                       'B07', 'B08', 'B8A', 'B09', 'B11', 'B12']):
             bands[band_name] = src.read(i + 1)
         profile = src.profile
     return bands, profile
 
 def calculate_indices(pre_bands, post_bands):
     """
-    Calculates the dNBR, NDWI, and NDVI indices from two dictionaries of Sentinel-2 bands.
+    Calculates dNBR (Normalized Burn Ratio), NDWI (Normalized Difference Water Index), and NDVI (Normalized Difference Vegetation Index) from Sentinel-2 bands.
 
-    Parameters
-    ----------
-    pre_bands : dict
-        A dictionary of Sentinel-2 bands from a pre-fire image.
-    post_bands : dict
-        A dictionary of Sentinel-2 bands from a post-fire image.
+    Args:
+        pre_bands (dict): A dictionary with Sentinel-2 band names as keys and corresponding band data as values from the pre-fire image.
+        post_bands (dict): A dictionary with Sentinel-2 band names as keys and corresponding band data as values from the post-fire image.
 
-    Returns
-    -------
-    dnbr : numpy.ndarray
-        The dNBR index, calculated as the difference between the pre-fire and post-fire Normalized Burn Ratios.
-    ndwi : numpy.ndarray
-        The NDWI index, calculated as the difference between the post-fire band 3 and band 8 values, normalized by their sum.
-    ndvi : numpy.ndarray
-        The NDVI index, calculated as the difference between the post-fire band 8 and band 4 values, normalized by their sum.
+    Returns:
+        tuple: A tuple containing dNBR, NDWI, and NDVI as 2D numpy arrays.
     """
-    
     nbr_pre = (pre_bands['B8A'] - pre_bands['B12']) / (pre_bands['B8A'] + pre_bands['B12'])
     nbr_post = (post_bands['B8A'] - post_bands['B12']) / (post_bands['B8A'] + post_bands['B12'])
     dnbr = nbr_pre - nbr_post
@@ -59,25 +43,20 @@ def calculate_indices(pre_bands, post_bands):
 
 def create_burn_label(dnbr, ndwi, ndvi, b08):
     """
-    Creates a burn label array from the dNBR, NDWI, NDVI, and band 8 values.
+    Creates a burn label mask for a given set of conditions based on 
+    dNBR (Normalized Burn Ratio), NDWI (Normalized Difference Water Index), 
+    NDVI (Normalized Difference Vegetation Index), and the B08 band.
 
-    Parameters
-    ----------
-    dnbr : numpy.ndarray
-        The dNBR index, calculated as the difference between the pre-fire and post-fire Normalized Burn Ratios.
-    ndwi : numpy.ndarray
-        The NDWI index, calculated as the difference between the post-fire band 3 and band 8 values, normalized by their sum.
-    ndvi : numpy.ndarray
-        The NDVI index, calculated as the difference between the post-fire band 8 and band 4 values, normalized by their sum.
-    b08 : numpy.ndarray
-        The post-fire band 8 values.
+    Args:
+        dnbr (numpy.ndarray): 2D array of dNBR values.
+        ndwi (numpy.ndarray): 2D array of NDWI values.
+        ndvi (numpy.ndarray): 2D array of NDVI values.
+        b08 (numpy.ndarray): 2D array of B08 band values.
 
-    Returns
-    -------
-    burn_label : numpy.ndarray
-        A binary array where 1 indicates a burned pixel and 0 indicates an unburned pixel.
+    Returns:
+        numpy.ndarray: A binary mask where 1 indicates a burn area that meets 
+        the specified thresholds, and 0 otherwise.
     """
-
     burn_label = np.where(
         (dnbr > 0.27) & 
         (ndwi < 0) & 
@@ -89,21 +68,16 @@ def create_burn_label(dnbr, ndwi, ndvi, b08):
 
 def setup_directories(root_dir):
     """
-    Sets up the input and output directories in the given root directory.
+    Sets up the directory structure for the input and output files. Creates a folder
+    named 'input' and 'output' in the given root directory. If the folders already exist,
+    does nothing.
 
-    Parameters
-    ----------
-    root_dir : str
-        The root directory where the input and output directories will be created.
+    Args:
+        root_dir (str or Path): The root directory where the input and output folders will be created.
 
-    Returns
-    -------
-    input_dir : str
-        The path to the created input directory.
-    output_dir : str
-        The path to the created output directory.
+    Returns:
+        tuple: A tuple containing the paths to the input and output folders.
     """
-
     input_dir = os.path.join(root_dir, 'input')
     output_dir = os.path.join(root_dir, 'output')
     os.makedirs(input_dir, exist_ok=True)
@@ -112,52 +86,32 @@ def setup_directories(root_dir):
 
 def get_tile_pairs(input_dir):
     """
-    Reads all .tif files in the given input directory and groups them into pairs of pre- and post-fire images
-    based on their tile IDs.
-
-    Parameters
-    ----------
-    input_dir : str
-        The path to the directory containing the pre- and post-fire Sentinel-2 images.
-
-    Returns
-    -------
-    tile_pairs : dict
-        A dictionary where the keys are the tile IDs and the values are dictionaries containing the paths to the
-        pre- and post-fire images for that tile ID.
+    Recursively reads all .tif files in the input directory and its subdirectories.
+    Groups them into pairs of pre- and post-fire images based on tile IDs.
     """
-    files = os.listdir(input_dir)
     tile_pairs = {}
-    for file in files:
-        if file.endswith('.tif'):
-            tile_id = file.split('_')[0]
-            if tile_id not in tile_pairs:
-                tile_pairs[tile_id] = {'pre': None, 'post': None}
-            file_path = os.path.join(input_dir, file)
-            if 'pre' in file.lower():
-                tile_pairs[tile_id]['pre'] = file_path
-            elif 'post' in file.lower():
-                tile_pairs[tile_id]['post'] = file_path
+    for file_path in Path(input_dir).rglob('*.tif'):
+        tile_id = file_path.stem.split('_')[0]
+        if tile_id not in tile_pairs:
+            tile_pairs[tile_id] = {'pre': None, 'post': None}
+        
+        if 'pre' in file_path.stem.lower():
+            tile_pairs[tile_id]['pre'] = str(file_path)
+        elif 'post' in file_path.stem.lower():
+            tile_pairs[tile_id]['post'] = str(file_path)
     return tile_pairs
 
 def process_tile_pair(tile_id, paths, output_dir):
     """
-    Processes a pair of pre- and post-fire Sentinel-2 images for a given tile ID, calculates various indices,
-    and writes the output to a GeoTIFF file.
+    Processes a single tile pair of pre- and post-fire Sentinel-2 images.
 
-    Parameters
-    ----------
-    tile_id : str
-        The identifier for the tile being processed.
-    paths : dict
-        A dictionary containing the file paths for the 'pre' and 'post' fire images.
-    output_dir : str
-        The directory where the output file will be saved.
+    Args:
+        tile_id (str): The ID of the tile pair.
+        paths (dict): A dictionary with 'pre' and 'post' keys containing the file paths to the pre- and post-fire images.
+        output_dir (str or Path): The directory where the output files will be saved.
 
-    Returns
-    -------
-    None
-    This function writes the processed data to a file and prints a message upon completion.
+    Returns:
+        None
     """
     if paths['pre'] is None or paths['post'] is None:
         print(f"Missing pre or post image for tile {tile_id}")
@@ -173,6 +127,7 @@ def process_tile_pair(tile_id, paths, output_dir):
     output_profile.update({
         'count': 16,
         'dtype': 'float32',
+        'compress': 'zstd'  # Apply Zstandard compression
     })
     
     post_filename = os.path.basename(paths['post'])
@@ -206,19 +161,16 @@ def process_tile_pair(tile_id, paths, output_dir):
 
 def main(root_dir):
     """
-    Main function to process Sentinel-2 images by setting up directories, identifying tile pairs, and processing them
-    in parallel using a process pool.
+    Main entry point for processing Sentinel-2 images.
 
-    Parameters
-    ----------
-    root_dir : str
-        The root directory where the input and output directories are located.
+    This function sets up the directory structure, retrieves the tile pairs, and processes each tile pair
+    in parallel using a ProcessPoolExecutor.
 
-    Returns
-    -------
-    None
-    This function orchestrates the setup and processing of Sentinel-2 image tiles, utilizing parallel processing
-    to improve efficiency.
+    Args:
+        root_dir (str or Path): The root directory where the input and output folders will be created.
+
+    Returns:
+        None
     """
     input_dir, output_dir = setup_directories(root_dir)
     tile_pairs = get_tile_pairs(input_dir)
@@ -230,7 +182,7 @@ def main(root_dir):
         ]
         
         for future in as_completed(futures):
-            future.result()  # Wait for each task to complete
+            future.result()
 
 if __name__ == "__main__":
     root_dir = r"Raster"
