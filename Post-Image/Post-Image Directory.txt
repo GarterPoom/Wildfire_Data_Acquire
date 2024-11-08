@@ -1,0 +1,1 @@
+This directory store Sentinel-2 Image which is After Burn Period as same tile with Pre-Image Folder.
