@@ -1,4 +1,4 @@
-import os # For handling file paths
+import os  # For handling file paths
 import rasterio  # For reading and writing raster files
 from rasterio.enums import Resampling  # For specifying the resampling method
 from osgeo import gdal  # GDAL library for handling raster data
@@ -7,22 +7,6 @@ from osgeo import gdal  # GDAL library for handling raster data
 def resample_image(input_path, output_path, target_resolution=10):
     """
     Resamples a single image to a target resolution and saves it as an 8-bit GeoTIFF file.
-
-    Parameters
-    ----------
-    input_path : str
-        The path to the input raster file to be resampled.
-    output_path : str
-        The path to the output GeoTIFF file to be saved.
-    target_resolution : int, optional
-        The target resolution in meters to resample the image to. Defaults to 10 meters.
-
-    Notes
-    -----
-    This function uses the rasterio library to read and write raster data. The nearest
-    neighbor resampling method is used to resample the data. The output file is saved as
-    a GeoTIFF file with float32 data type and the same coordinate reference system (CRS)
-    as the input file.
     """
     print(f"Resampling image: {input_path} to {output_path} at {target_resolution}m resolution.")
     
@@ -47,8 +31,8 @@ def resample_image(input_path, output_path, target_resolution=10):
             (src.height / data.shape[-2])  # Adjust height scaling
         )
         
-        # Convert data to float32 for decimal support
-        data_float = data / data.max()  # Normalize data to the range [0, 1]
+        # Normalize data to range [0, 1]
+        data_float = data / data.max()  # Normalize data
 
         # Write the resampled data to a new file
         with rasterio.open(
@@ -70,27 +54,7 @@ def resample_image(input_path, output_path, target_resolution=10):
 def process_bands(input_folder, output_folder):
     """
     Processes Sentinel-2 band files in a given input folder, resamples them, and writes the output to a GeoTIFF file.
-
-    Parameters
-    ----------
-    input_folder : str
-        The path to the folder containing the input .jp2 Sentinel-2 band files.
-    output_folder : str
-        The path to the folder where the processed output file will be saved.
-
-    Notes
-    -----
-    This function searches for .jp2 files in the input folder, extracts tile and date information,
-    and resamples each band file to a specified resolution. It creates a temporary folder to store
-    the resampled files and then constructs a virtual raster (VRT) to combine them. The combined
-    raster is saved as a GeoTIFF file in the output folder. Temporary files are cleaned up after
-    processing.
-
-    Note
-    ----
-    The function uses the GDAL and rasterio libraries for file handling and raster processing.
     """
-    
     print(f"Processing bands in folder: {input_folder}")
     
     # Find all .jp2 files in the input folder
@@ -107,28 +71,16 @@ def process_bands(input_folder, output_folder):
     resampled_files = []
     band_paths = {}
 
-    # Debug print to check the first filename
-    print(f"First JP2 file: {jp2_files[0]}")
-    
-    # Get the tile name and date from the first JP2 file
-    first_file = jp2_files[0]
-    parts = first_file.split('_')
-    if len(parts) >= 2:
-        # Extract tile name and date (e.g., "T31UGS_20190715")
-        tile_date = f"{parts[0]}_{parts[1][:8]}"  # Take only YYYYMMDD part from the timestamp
-        print(f"Extracted tile and date: {tile_date}")  # Debug print
-    else:
-        print("Warning: Unexpected filename format")
-        tile_date = "unknown"
-
-    # Rest of the processing...
+    # Loop through files to organize by band and resample
     for jp2_file in jp2_files:
         input_path = os.path.join(input_folder, jp2_file)
         output_path = os.path.join(temp_folder, f"{os.path.splitext(jp2_file)[0]}_resampled.tif")
         
+        # Resample the current band file
         resample_image(input_path, output_path)
         resampled_files.append(output_path)
 
+        # Assign each band to its corresponding path
         for band in ['B01', 'B02', 'B03', 'B04', 'B05', 'B06', 'B07', 'B08', 'B8A', 'B09', 'B11', 'B12']:
             if band in jp2_file:
                 band_paths[band] = output_path
@@ -137,8 +89,11 @@ def process_bands(input_folder, output_folder):
     ordered_bands = ['B01', 'B02', 'B03', 'B04', 'B05', 'B06', 'B07', 'B08', 'B8A', 'B09', 'B11', 'B12']
     final_resampled_files = [band_paths[band] for band in ordered_bands if band in band_paths]
 
-    # Create output filename using the extracted tile_date
-    output_filename = f"{tile_date}_post.tif"
+    # Dynamic output file naming
+    # Extract tile and timestamp information from a representative .jp2 filename
+    parts = jp2_files[0].split('_')
+    tile_date_timestamp = f"{parts[0]}_{parts[1]}"  # Adjusted pattern to include the timestamp
+    output_filename = f"{tile_date_timestamp}_post.tif"
     print(f"Creating output file: {output_filename}")  # Debug print
     output_path = os.path.join(output_folder, output_filename)
     
@@ -160,18 +115,6 @@ def process_bands(input_folder, output_folder):
 def find_and_process_folders(root_folder, output_folder):
     """
     Searches for folders containing .jp2 files in the given root folder and processes them using the process_bands function.
-
-    Parameters
-    ----------
-    root_folder : str
-        The root directory to search for folders containing .jp2 files.
-    output_folder : str
-        The directory where the output files will be saved.
-
-    Returns
-    -------
-    None
-    This function prints messages as it searches for and processes folders, and does not return any value.
     """
     print(f"Searching for folders in: {root_folder}")
     
