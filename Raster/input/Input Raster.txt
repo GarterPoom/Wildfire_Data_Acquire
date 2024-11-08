@@ -1,0 +1,1 @@
+This folder is directory to store Raster GeoTIFF from Before and After Burn Sentinel-2 Images that was resampled.
